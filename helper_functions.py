@@ -1,6 +1,6 @@
 import numpy as np
 from state_manager import GameState
-
+import math
 
 # Make sure the input is an integer
 def input_number(message):
@@ -139,13 +139,16 @@ def check_legal_action(action: int, game_state: GameState, chips_to_give: int):
 
 # Get the actions a bot can take.
 def get_available_actions(game_state: GameState):
-    available_actions = ["FOLD"]
+    available_actions = ['FOLD']
     # Check if the bot has more or equal chips than the highest bid. (To call or raise)
     if game_state.my_chips >= game_state.highest_bid - game_state.my_chips_on_table:
-        available_actions.append("CALL")
+        available_actions.append('CALL')
         # Check if the bot has more chips than the highest bid. (To raise)
         if game_state.my_chips > game_state.highest_bid - game_state.my_chips_on_table and not game_state.taken_action:
-            available_actions.append("RAISE")
+            raises = math.floor((game_state.my_chips + game_state.my_chips_on_table - game_state.highest_bid)/game_state.bet_limit)
+            if raises > 0:
+                for i in range(1, raises):
+                    available_actions.append('RAISE' + str(i*game_state.bet_limit))
     return available_actions
 
 
@@ -190,7 +193,6 @@ def card_to_index(card, full_deck=True):
         card_index = card_index % 24
 
     return card_index
-
 
 
 def combination_idx_to_card_pair(combination_idx, full_deck):

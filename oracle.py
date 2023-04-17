@@ -117,7 +117,6 @@ def generate_cheat_sheet(hand: [], cards_on_table: [], num_players: int, rollout
 
 
 def generate_utility_matrix(cards_on_table: [], full_deck: bool):
-    print("Generating utility matrix...")
     # Create a fake deck.
     deck = np.array(correct_format(create_deck(full_deck)))
     # Get all hole pairs.
@@ -146,7 +145,6 @@ def generate_utility_matrix(cards_on_table: [], full_deck: bool):
 
     # Draw scenarios, where both hole card combinations are the same
     np.fill_diagonal(utility_matrix, 0)
-    print("-> Utility matrix generated.")
     return utility_matrix
 
 

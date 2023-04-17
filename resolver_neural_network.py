@@ -3,6 +3,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import random
 import numpy as np
 import tensorflow as tf
+import pickle
 from keras.models import Model
 from keras.layers import Input, Dense, Concatenate
 from oracle import create_deck, shuffle_deck, generate_utility_matrix, correct_format
@@ -27,7 +28,7 @@ def one_hot_encode_cards(cards_on_table, full_deck):
     return one_hot_encoded
 
 
-def generate_neural_network(input_dim, hidden_layers, output_dim):
+def generate_neural_network(input_dim, hidden_layers, output_dim, num_cards_on_table):
     # Input layers
     if full_deck:
         num_cards = 52
@@ -35,7 +36,7 @@ def generate_neural_network(input_dim, hidden_layers, output_dim):
         num_cards = 24
     p1_ranges = Input(shape=(input_dim[0],), name="p1_ranges")
     p2_ranges = Input(shape=(input_dim[1],), name="p2_ranges")
-    cards_on_table = Input(shape=(max_cards_on_table, num_cards), name="cards_on_table")
+    cards_on_table = Input(shape=(num_cards_on_table, num_cards), name="cards_on_table")
     pot_size = Input(shape=(input_dim[2],), name="pot_size")
 
     # Process cards_on_table with GlobalAveragePooling1D
@@ -70,6 +71,7 @@ def generate_training_data(num_cards_on_table: int, full_deck: bool, rollouts):
     y = np.zeros((rollouts, (int((num_cards*(num_cards-1))/2))*2))
 
     for i in range(rollouts):
+        print("-> Rollout", i+1, "of", rollouts, "rollouts.")
         # Ranges. P1 & P2 (random initially)
         if full_deck:
             p1_range = np.array([random.randint(0, 100) for i in range(1326)])
@@ -108,11 +110,9 @@ def generate_training_data(num_cards_on_table: int, full_deck: bool, rollouts):
         v1 = M.dot(p2_range.transpose())
         v2 = ((-1)*p1_range).dot(M)
 
-        # one-hot-encode cards
-        cards_on_table = one_hot_encode_cards(cards_on_table, full_deck)
         x1[i] = np.array(p1_range)/np.sum(p1_range)
         x2[i] = np.array(p2_range)/np.sum(p2_range)
-        x3[i] = np.array(cards_on_table)
+        x3[i] = np.array(one_hot_encode_cards(cards_on_table, full_deck)) # one-hot-encode cards
         x4[i] = np.array(pot_size / pot_size_max)
 
         y[i] = np.concatenate([np.array(v1), np.array(v2)])
@@ -125,21 +125,39 @@ full_deck = False
 if full_deck:
     num_cards = 52
 else:
-    num_cards = 24
-max_cards_on_table = 5  # The maximum number of cards on the table (e.g., the river)
+    num_cards = 24  # The maximum number of cards on the table (e.g., the river)
+
+cards_on_table = 5
+rollouts = 100
 
 input_dim = (int((num_cards*(num_cards-1))/2), int((num_cards*(num_cards-1))/2), 1)  # P1 ranges, P2 ranges, pot size, (public cards)
 hidden_layers = [256, 128, 64]
 output_dim = int((num_cards*(num_cards-1))/2) + int((num_cards*(num_cards-1))/2)  # Fold, Call, Raise
-model = generate_neural_network(input_dim, hidden_layers, output_dim)
-rollouts = 5
+model = generate_neural_network(input_dim, hidden_layers, output_dim, cards_on_table)
 
 model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
 # X_train is a list of 4 numpy arrays: p1_ranges, p2_ranges, cards_on_table, pot_size
 # y_train is a numpy array of one-hot encoded actions (Fold, Call, Raise)
-X_train, y_train = generate_training_data(5, full_deck, rollouts)  # River
+# X_train, y_train = generate_training_data(cards_on_table, full_deck, rollouts)  # River
+
+"""
+with open('data/x_train_'+str(cards_on_table)+'cards_'+str(rollouts) + 'rollouts.pkl', 'wb') as file:
+    # A new file will be created
+    pickle.dump(X_train, file)
+
+with open('data/y_train_'+str(cards_on_table)+'cards_'+str(rollouts) + 'rollouts.pkl', 'wb') as file:
+    # A new file will be created
+    pickle.dump(y_train, file)
+"""
+
+with open('data/x_train_5cards_100rollouts.pkl', 'rb') as file:
+    # Call load method to deserialze
+    X_train = pickle.load(file)
+with open('data/y_train_5cards_100rollouts.pkl', 'rb') as file:
+    # Call load method to deserialze
+    y_train = pickle.load(file)
 
 # Fit the model.
-model.fit(X_train, y_train, batch_size=1, epochs=25, validation_split=0.2)
-
+model.fit(X_train, y_train, batch_size=1, epochs=1000, validation_split=0.2)
+model.save('models/model_5cards_100_rollouts_1000epochs')

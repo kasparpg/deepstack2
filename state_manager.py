@@ -9,6 +9,7 @@ class GameState:
         self.num_players = len(players)
         self.deck = deck
         self.lap = lap  # lap = 0 means pre-flop, lap = 1 means flop etc.
+        self.bet_limit = 10
 
         # My states.
         self.name = players[my_index].name

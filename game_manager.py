@@ -3,10 +3,10 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import time
 import random
 from oracle import create_deck, shuffle_deck, Player, get_ai_names, check_winner
-from helper_functions import input_number, get_proper_array_index, check_legal_action, leaderboard, check_if_all_players_taken_action, check_highest_bid, display_tree
+from helper_functions import input_number, get_proper_array_index, check_legal_action, leaderboard, check_if_all_players_taken_action, check_highest_bid, display_tree, get_available_actions
 from state_manager import GameState
 from art import tprint
-from resolver_subtree import build_subtree
+from resolver_subtree import build_subtree, update_tree
 from resolver import take_action
 
 
@@ -193,7 +193,7 @@ def create_game(player_count: int, human_count: int, full_deck: bool, cards_per_
                 break
 
             print("\nThere are", table_chips, "chips on the table.")
-            print("\nThe highest bid is", str(highest_bid), "chips.")
+            print("The highest bid is", str(highest_bid), "chips.")
 
             # Make sure the current player taking an action has not folded.
             current_player = players[action_index]
@@ -221,17 +221,27 @@ def create_game(player_count: int, human_count: int, full_deck: bool, cards_per_
 
                     # Use resolver if there are 2 players, where 1 is a bot.
                     if len(game_state.players) == 2:
-                        print("\nThere are 2 players in this game, and 1 is a bot. Resolver activated.")
+                        print("There are 2 players in this game, and 1 is a bot. Resolver activated.")
+
+                        print("\nBuilding subtree for GameState...")
                         root = build_subtree(game_state)
+                        print("-> Subtree built.")
                         display_tree(root)
-                        a = ["FOLD", "CALL", "RAISE"]
                         game_state.fake_state = False
+                        a = get_available_actions(game_state)
                         game_state = take_action(game_state, a[random.randint(0, len(a) - 1)])
-                        action_index = get_proper_array_index(game_state.my_index, game_state.players, 1)
+                        highest_bid = game_state.highest_bid
+                        table_chips = game_state.chips_on_table
+                        action_index = get_proper_array_index(1, game_state.players, 1)
+
                     # If there are more than 2 players, do a random action.
                     else:
-                        a = ["FOLD", "CALL", "RAISE"]
-                        action_index = get_proper_array_index(take_action(game_state, a[random.randint(0, len(a)-1)]).my_index, game_state.players, 1)
+                        game_state.fake_state = False
+                        a = get_available_actions(game_state)
+                        game_state = take_action(game_state, a[random.randint(0, len(a) - 1)])
+                        highest_bid = game_state.highest_bid
+                        table_chips = game_state.chips_on_table
+                        action_index = get_proper_array_index(1, game_state.players, 1)
 
             # The current player taking an action has folded, skip to the next player.
             else:
@@ -296,7 +306,7 @@ def create_game(player_count: int, human_count: int, full_deck: bool, cards_per_
 
 player_count = 2
 human_count = 1
-full_deck = False;
+full_deck = False
 cards_per_hand = 2
 starting_chips = 100
 game = create_game(player_count, human_count, full_deck, cards_per_hand)
