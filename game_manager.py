@@ -31,9 +31,6 @@ def create_game(player_count: int, human_count: int, full_deck: bool, cards_per_
     if human_count > player_count:
         print("ERROR: The maximum number of human players is:", player_count)
         return
-    if human_count < 1:
-        print("ERROR: The minimum number of human players is 1.")
-        return
 
     if starting_chips < 0:
         print("ERROR: Starting chips have to be greater than 0.")
@@ -223,23 +220,26 @@ def create_game(player_count: int, human_count: int, full_deck: bool, cards_per_
                     # Use resolver if there are 2 players, where 1 is a bot.
                     if len(game_state.players) == 2:
                         print("There are 2 players in this game, and 1 is a bot. Resolver activated.\n")
-                        # print("Building subtree...")
+                        print("Building subtree...")
                         root = build_subtree(game_state)
+                        display_tree(root)
                         M = None
                         if root.initial_lap == 3 and len(root.cards_on_table) == 5:
                             M = generate_utility_matrix(correct_format(root.cards_on_table), full_deck)
-                        # print("-> Subtree built.")
+                        print("-> Subtree built.")
                         T = 100
                         root_strategy_array = root.strategy_array
-                        # print("\nStarting tree update rollouts, T = "+ str(T) + "...")
+                        print("\nStarting tree update rollouts, T = "+ str(T) + "...")
                         for t in range(T):
                             update_tree(root, M)
                             root_strategy_array += root.strategy_array
-                            # print("-> Rollout " + str(t) + " of " + str(T) + " complete.")
-                        # print("--> Tree rollouts completed. \n")
+                            print("-> Rollout " + str(t) + " of " + str(T) + " complete.")
+                        print("--> Tree rollouts completed. \n")
                         action_values = root_strategy_array/root_strategy_array.sum(axis=1)[:,None]
                         action_values = np.nanmean(action_values, axis=0)
                         action_values = np.round(action_values, decimals=5)
+                        print(action_values)
+                        display_tree(root)
                         uniform = random.uniform(0, 1)
                         total_value = 0
                         action = 0
@@ -339,7 +339,7 @@ def create_game(player_count: int, human_count: int, full_deck: bool, cards_per_
 
 
 player_count = 2
-human_count = 1
+human_count = 0
 full_deck = False
 cards_per_hand = 2
 starting_chips = 100
