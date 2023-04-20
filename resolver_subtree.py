@@ -144,7 +144,7 @@ def build_subtree(game_state, depth=0, max_depth=10, parent=None, initial_lap=-1
     return node
 
 
-def update_tree(node):
+def update_tree(node, M=None):
     # Update range for root node.
     if not node.parent:
         list_of_pairs = [combination_idx_to_card_pair(i, full_deck) for i in range(276)]
@@ -165,12 +165,12 @@ def update_tree(node):
 
     for i, (action, child) in enumerate(zip(node.actions, node.children)):
         if cut_off_tree(node.initial_lap, node, child, node.depth, action):
-            deploy_nn(node, child, action)
+            deploy_nn(node, M)
             update_ranges_and_values(node, action, i)
 
     # Update every node in the tree.
     for child in node.children:
-        update_tree(child)
+        update_tree(child, M)
 
     # Update parent value ranges with children value ranges.
     if len(node.v1_range) == 0:
@@ -209,7 +209,7 @@ def cut_off_tree(initial_lap, node, child, depth, action):
         return continue_loop
 
 
-def deploy_nn(node, child, action):
+def deploy_nn(node, M):
     initial_lap = node.initial_lap
     model_location = 'NONE'
     # Flop
@@ -224,7 +224,6 @@ def deploy_nn(node, child, action):
     # Showdown
     elif initial_lap == 3 and len(node.cards_on_table) == 5:
         node.update_ranges(node.cards_on_table)
-        M = generate_utility_matrix(correct_format(node.cards_on_table), full_deck)
         node.v1_range = node.p2_range.dot(M)
         node.v2_range = node.p1_range.dot(M)
 

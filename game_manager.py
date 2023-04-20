@@ -2,7 +2,7 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import time
 import random
-from oracle import create_deck, shuffle_deck, Player, get_ai_names, check_winner
+from oracle import create_deck, shuffle_deck, Player, get_ai_names, check_winner, generate_utility_matrix, correct_format
 from helper_functions import input_number, get_proper_array_index, check_legal_action, leaderboard, check_if_all_players_taken_action, check_highest_bid, display_tree, get_available_actions, card_to_index, combination_idx_to_card_pair
 from state_manager import GameState
 from art import tprint
@@ -222,18 +222,21 @@ def create_game(player_count: int, human_count: int, full_deck: bool, cards_per_
 
                     # Use resolver if there are 2 players, where 1 is a bot.
                     if len(game_state.players) == 2:
-                        print("There are 2 players in this game, and 1 is a bot. Resolver activated.")
-                        print("Building subtree...")
+                        print("There are 2 players in this game, and 1 is a bot. Resolver activated.\n")
+                        # print("Building subtree...")
                         root = build_subtree(game_state)
-                        print("-> Subtree built.")
+                        M = None
+                        if root.initial_lap == 3 and len(root.cards_on_table) == 5:
+                            M = generate_utility_matrix(correct_format(root.cards_on_table), full_deck)
+                        # print("-> Subtree built.")
                         T = 100
                         root_strategy_array = root.strategy_array
-                        print("\nStarting tree update rollouts, T = "+ str(T) + "...")
+                        # print("\nStarting tree update rollouts, T = "+ str(T) + "...")
                         for t in range(T):
-                            update_tree(root)
+                            update_tree(root, M)
                             root_strategy_array += root.strategy_array
-                            print("-> Rollout " + str(t) + " of " + str(T) + " complete.")
-                        print("--> Tree rollouts completed. \n")
+                            # print("-> Rollout " + str(t) + " of " + str(T) + " complete.")
+                        # print("--> Tree rollouts completed. \n")
                         action_values = root_strategy_array/root_strategy_array.sum(axis=1)[:,None]
                         action_values = np.nanmean(action_values, axis=0)
                         action_values = np.round(action_values, decimals=5)
@@ -305,6 +308,17 @@ def create_game(player_count: int, human_count: int, full_deck: bool, cards_per_
                     # check winner
                     winner = check_winner(players, cards_on_table)
                     print("\n" + winner.name, "has won the round!")
+                    """
+                    if winner.sidepotted:
+                        winner.chips += winner.chips_added_to_table
+                        table_chips -= winner.chips_added_to_table
+                        for player in players:
+                            if player.chips_added_to_table > 0:
+                                player.chips += player.chips_added_to_table
+                                table_chips -= player.chips_added_to_table
+                    else:
+                        winner.chips += table_chips
+                    """
                     winner.chips += table_chips
                     print("->", table_chips, "was added to their inventory.")
                     table_chips = 0
@@ -324,7 +338,7 @@ def create_game(player_count: int, human_count: int, full_deck: bool, cards_per_
     return 0
 
 
-player_count = 3
+player_count = 2
 human_count = 1
 full_deck = False
 cards_per_hand = 2

@@ -24,6 +24,7 @@ class Player:
         self.chips = chips
         self.chips_added_to_table = chips_added_to_table
         self.action_taken = action_taken
+        self.side_potted = False
 
 
 # Check the winner.

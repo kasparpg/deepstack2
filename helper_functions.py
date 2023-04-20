@@ -86,6 +86,7 @@ def check_legal_action(action: int, game_state: GameState, chips_to_give: int):
                 if current_player.chips < (highest_bid - current_player.chips_added_to_table):
                     # side-pot
                     print("\nside-pot stuff??")
+
                 # The player has enough chips to call, but entered more than he has.
                 else:
                     print("\nYou don't have that many chips.")
