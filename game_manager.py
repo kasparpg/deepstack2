@@ -3,11 +3,12 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import time
 import random
 from oracle import create_deck, shuffle_deck, Player, get_ai_names, check_winner
-from helper_functions import input_number, get_proper_array_index, check_legal_action, leaderboard, check_if_all_players_taken_action, check_highest_bid, display_tree, get_available_actions
+from helper_functions import input_number, get_proper_array_index, check_legal_action, leaderboard, check_if_all_players_taken_action, check_highest_bid, display_tree, get_available_actions, card_to_index, combination_idx_to_card_pair
 from state_manager import GameState
 from art import tprint
 from resolver_subtree import build_subtree, update_tree
 from resolver import take_action
+import numpy as np
 
 
 def create_game(player_count: int, human_count: int, full_deck: bool, cards_per_hand: int):
@@ -68,7 +69,7 @@ def create_game(player_count: int, human_count: int, full_deck: bool, cards_per_
             time.sleep(0.5)
 
     # Create big blind index & table chip count.
-    dealer_index = random.randint(0, len(players)) - 1
+    dealer_index = random.randint(0, len(players) - 1)
 
     # GAME ROUNDS:
     print("\nThe game is about to begin...")
@@ -222,14 +223,33 @@ def create_game(player_count: int, human_count: int, full_deck: bool, cards_per_
                     # Use resolver if there are 2 players, where 1 is a bot.
                     if len(game_state.players) == 2:
                         print("There are 2 players in this game, and 1 is a bot. Resolver activated.")
-
-                        print("\nBuilding subtree for GameState...")
+                        print("Building subtree...")
                         root = build_subtree(game_state)
                         print("-> Subtree built.")
-                        display_tree(root)
+                        T = 100
+                        root_strategy_array = root.strategy_array
+                        print("\nStarting tree update rollouts, T = "+ str(T) + "...")
+                        for t in range(T):
+                            update_tree(root)
+                            root_strategy_array += root.strategy_array
+                            print("-> Rollout " + str(t) + " of " + str(T) + " complete.")
+                        print("--> Tree rollouts completed. \n")
+                        action_values = root_strategy_array/root_strategy_array.sum(axis=1)[:,None]
+                        action_values = np.nanmean(action_values, axis=0)
+                        action_values = np.round(action_values, decimals=5)
+                        uniform = random.uniform(0, 1)
+                        total_value = 0
+                        action = 0
+                        for i, value in enumerate(action_values):
+                            total_value += value
+                            if total_value >= uniform:
+                                action = i
+                                break
+
                         game_state.fake_state = False
+
                         a = get_available_actions(game_state)
-                        game_state = take_action(game_state, a[random.randint(0, len(a) - 1)])
+                        game_state = take_action(game_state, a[action])
                         highest_bid = game_state.highest_bid
                         table_chips = game_state.chips_on_table
                         action_index = get_proper_array_index(1, game_state.players, 1)
@@ -304,7 +324,7 @@ def create_game(player_count: int, human_count: int, full_deck: bool, cards_per_
     return 0
 
 
-player_count = 2
+player_count = 3
 human_count = 1
 full_deck = False
 cards_per_hand = 2

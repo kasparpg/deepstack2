@@ -17,9 +17,8 @@ def one_hot_encode_cards(cards_on_table, full_deck):
 
     one_hot_encoded = np.zeros((num_cards_on_table, one_hot_size), dtype=int)
 
-    for i, card_str in enumerate(cards_on_table):
-        card_obj = card_str_to_color_value(card_str)
-        card_idx = card_to_index(card_obj, full_deck)  # Convert card string to index
+    for i, card in enumerate(cards_on_table):
+        card_idx = card_to_index(card, full_deck)  # Convert card string to index
 
         # Skip the index if it's out of bounds for the one_hot_size.
         if card_idx < one_hot_size:
@@ -50,7 +49,7 @@ def generate_neural_network(input_dim, hidden_layers, output_dim, num_cards_on_t
         x = Dense(units, activation='relu')(x)
 
     # Output layer
-    output = Dense(output_dim, activation='softmax')(x)
+    output = Dense(output_dim)(x)
 
     # Create and return model.
     return Model(inputs=[p1_ranges, p2_ranges, cards_on_table, pot_size], outputs=output)
@@ -70,6 +69,7 @@ def generate_training_data(num_cards_on_table: int, full_deck: bool, rollouts):
 
     y = np.zeros((rollouts, (int((num_cards*(num_cards-1))/2))*2))
 
+    M = 0
     for i in range(rollouts):
         print("-> Rollout", i+1, "of", rollouts, "rollouts.")
         # Ranges. P1 & P2 (random initially)
@@ -92,31 +92,33 @@ def generate_training_data(num_cards_on_table: int, full_deck: bool, rollouts):
         # Generate cards on table. 5 for river, etc.
         deck = shuffle_deck(create_deck(full_deck), 69)
         cards_on_table = []
-        for i in range(num_cards_on_table):
+        for j in range(num_cards_on_table):
             card = deck.pop()
             cards_on_table.append(card)
 
         # Remove the cards on the table from the player ranges.
         for card in cards_on_table:
+            c = card_to_index(card, full_deck)
             all_indices_with_card = [
-                i for i, pair in enumerate(list_of_pairs) if card in pair
+                i for i, pair in enumerate(list_of_pairs) if c in pair
             ]
             p1_range[all_indices_with_card] = 0
             p2_range[all_indices_with_card] = 0
 
-        cards_on_table = correct_format(cards_on_table)
-        M = generate_utility_matrix(cards_on_table, full_deck)
+        one_hot_cards = one_hot_encode_cards(cards_on_table, full_deck)
+        if i == 0 or i % 25 == 0:
+            cards_on_table = correct_format(cards_on_table)
+            M = generate_utility_matrix(cards_on_table, full_deck)
 
         v1 = M.dot(p2_range.transpose())
         v2 = ((-1)*p1_range).dot(M)
 
         x1[i] = np.array(p1_range)/np.sum(p1_range)
         x2[i] = np.array(p2_range)/np.sum(p2_range)
-        x3[i] = np.array(one_hot_encode_cards(cards_on_table, full_deck)) # one-hot-encode cards
+        x3[i] = np.array(one_hot_cards)  # one-hot-encode cards
         x4[i] = np.array(pot_size / pot_size_max)
 
         y[i] = np.concatenate([np.array(v1), np.array(v2)])
-
     return [x1, x2, x3, x4], y
 
 
@@ -127,37 +129,39 @@ if full_deck:
 else:
     num_cards = 24  # The maximum number of cards on the table (e.g., the river)
 
-cards_on_table = 5
-rollouts = 100
+num_cards_on_table = 5
+rollouts = 10000
 
 input_dim = (int((num_cards*(num_cards-1))/2), int((num_cards*(num_cards-1))/2), 1)  # P1 ranges, P2 ranges, pot size, (public cards)
 hidden_layers = [256, 128, 64]
 output_dim = int((num_cards*(num_cards-1))/2) + int((num_cards*(num_cards-1))/2)  # Fold, Call, Raise
-model = generate_neural_network(input_dim, hidden_layers, output_dim, cards_on_table)
+model = generate_neural_network(input_dim, hidden_layers, output_dim, num_cards_on_table)
 
-model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+model.compile(optimizer='adam', loss='MSE')
 
 # X_train is a list of 4 numpy arrays: p1_ranges, p2_ranges, cards_on_table, pot_size
 # y_train is a numpy array of one-hot encoded actions (Fold, Call, Raise)
-# X_train, y_train = generate_training_data(cards_on_table, full_deck, rollouts)  # River
+X_train, y_train = generate_training_data(num_cards_on_table, full_deck, rollouts)  # River
 
-"""
-with open('data/x_train_'+str(cards_on_table)+'cards_'+str(rollouts) + 'rollouts.pkl', 'wb') as file:
+
+with open('data/x_train'+str(num_cards)+'_'+str(num_cards_on_table)+'cards_'+str(rollouts) + 'rollouts.pkl', 'wb') as file:
     # A new file will be created
     pickle.dump(X_train, file)
 
-with open('data/y_train_'+str(cards_on_table)+'cards_'+str(rollouts) + 'rollouts.pkl', 'wb') as file:
+with open('data/y_train'+str(num_cards)+'_'+str(num_cards_on_table)+'cards_'+str(rollouts) + 'rollouts.pkl', 'wb') as file:
     # A new file will be created
     pickle.dump(y_train, file)
-"""
 
+"""
 with open('data/x_train_5cards_100rollouts.pkl', 'rb') as file:
     # Call load method to deserialze
     X_train = pickle.load(file)
 with open('data/y_train_5cards_100rollouts.pkl', 'rb') as file:
     # Call load method to deserialze
     y_train = pickle.load(file)
+"""
 
+epochs = 1000
 # Fit the model.
-model.fit(X_train, y_train, batch_size=1, epochs=1000, validation_split=0.2)
-model.save('models/model_5cards_100_rollouts_1000epochs')
+model.fit(X_train, y_train, batch_size=10, epochs=1000, validation_split=0.2)
+model.save('models/model'+str(num_cards)+'_'+str(num_cards_on_table)+'cards_'+str(rollouts) + 'rollouts_' + str(epochs) + 'epochs')

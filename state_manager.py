@@ -1,3 +1,5 @@
+
+
 class GameState:
     def __init__(self, players: [], my_index: int, cards_on_table: [], highest_bid: int, deck: [], lap: int, fake_state: bool):
         self.fake_state = fake_state

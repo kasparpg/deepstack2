@@ -2,6 +2,7 @@ import numpy as np
 from state_manager import GameState
 import math
 
+
 # Make sure the input is an integer
 def input_number(message):
     while True:
@@ -16,7 +17,7 @@ def input_number(message):
 
 # Make sure array indices are correct, by looping back to the start of the array when going above the highest index.
 def get_proper_array_index(index, array, increment):
-    return (index+increment) % len(array)
+    return (index + increment) % len(array)
 
 
 # Check if every player has taken an action.
@@ -43,7 +44,7 @@ def leaderboard(players: []):
     i = 1
     print("\nThe standings are:")
     for name, chip in zip(reversed(names), chips):
-        print(str(i)+".", name, "has", chip, "chips.")
+        print(str(i) + ".", name, "has", chip, "chips.")
         i += 1
 
 
@@ -71,10 +72,10 @@ def check_legal_action(action: int, game_state: GameState, chips_to_give: int):
         if action == 1:
             if current_player.human:
                 if fake_state:
-                    chips_to_give = highest_bid-current_player.chips_added_to_table
+                    chips_to_give = highest_bid - current_player.chips_added_to_table
                 else:
                     chips_to_give = input_number("\nHow many chips would you like to add to the table? (" + str(
-                    highest_bid - current_player.chips_added_to_table) + " to call). Enter here: ")
+                        highest_bid - current_player.chips_added_to_table) + " to call). Enter here: ")
             else:
                 chips_to_give = chips_to_give
             if current_player.action_taken and chips_to_give != (highest_bid - current_player.chips_added_to_table):
@@ -98,7 +99,8 @@ def check_legal_action(action: int, game_state: GameState, chips_to_give: int):
                       "chips to the table. Did you mean to fold? Press 2.")
             # The player has correctly added enough chips.
             else:
-                highest_bid = check_highest_bid(chips_to_give + current_player.chips_added_to_table, highest_bid, fake_state)
+                highest_bid = check_highest_bid(chips_to_give + current_player.chips_added_to_table, highest_bid,
+                                                fake_state)
                 table_chips += chips_to_give
                 if not fake_state:
                     print("->", current_player.name, "has added", chips_to_give, "to the table.")
@@ -134,7 +136,7 @@ def check_legal_action(action: int, game_state: GameState, chips_to_give: int):
         # Show the player standings.
         else:
             leaderboard(players)
-        return -1, highest_bid, 0
+    return -1, highest_bid, 0
 
 
 # Get the actions a bot can take.
@@ -143,12 +145,13 @@ def get_available_actions(game_state: GameState):
     # Check if the bot has more or equal chips than the highest bid. (To call or raise)
     if game_state.my_chips >= game_state.highest_bid - game_state.my_chips_on_table:
         available_actions.append('CALL')
-        # Check if the bot has more chips than the highest bid. (To raise)
-        if game_state.my_chips > game_state.highest_bid - game_state.my_chips_on_table and not game_state.taken_action:
-            raises = math.floor((game_state.my_chips + game_state.my_chips_on_table - game_state.highest_bid)/game_state.bet_limit)
+        # Check if the bot has more chips than the highest bid, and action is not taken. (To raise)
+        if game_state.my_chips >= game_state.highest_bid - game_state.my_chips_on_table and not game_state.taken_action:
+            raises = math.floor(
+                (game_state.my_chips + game_state.my_chips_on_table - game_state.highest_bid) / game_state.bet_limit)
             if raises > 0:
                 for i in range(1, raises):
-                    available_actions.append('RAISE' + str(i*game_state.bet_limit))
+                    available_actions.append('RAISE' + str(i * game_state.bet_limit))
     return available_actions
 
 
@@ -158,36 +161,23 @@ def cartesian_product(*arrays):
     arr = np.empty([len(a) for a in arrays] + [la], dtype=dtype)
     for i, a in enumerate(np.ix_(*arrays)):
         print(a)
-        arr[...,i] = a
+        arr[..., i] = a
     return arr.reshape(-1, la)
 
 
-def display_tree(node, depth=0, action=None):
-    indent = "  " * depth
-    if action is not None:
-        action_str = f"Action: {action}, "
-    else:
-        action_str = ""
-
-    if node.terminal:
-        payoffs_str = f", Payoffs: {node.payoffs}"
-    else:
-        payoffs_str = ""
-
-    print(f"{indent}{action_str}Player: {node.player.name}{payoffs_str}")
-
+def display_tree(node, depth=0):
     for action, child in zip(node.actions, node.children):
-        display_tree(child, depth + 1, action)
+        print("-" * depth + "-> " + node.player.name + ": " + str(action))
+        display_tree(child, depth + 1)
 
 
-def card_to_index(card, full_deck=True):
+def card_to_index(card, full_deck=False):
     """
     Returns a unique number for every card,
     given the card's suit and rank.
     """
-    suit_values = {"heart": 0, "spades": 12 + 1, "diamond": 12 * 2 + 1, "clubs": 12 * 3 + 1}
-    card_index = suit_values[card['color']] + card['value']
-
+    suit_values = {"heart": 0, "spades": 12 + 1, "diamonds": 12 * 2 + 1, "clubs": 12 * 3 + 1}
+    card_index = suit_values[card.color] + card.value
     if not full_deck:
         # Adjust the card index to match the reduced deck size.
         card_index = card_index % 24
